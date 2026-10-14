@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="theme-color" content="#101820">
+  <title>Pixel Tank Battle</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { width:100%; height:100%; margin:0; overflow:hidden; background:#101820; }
+    body { font-family:'Press Start 2P',monospace; user-select:none; }
+    #game-container { position:fixed; inset:0; width:100vw; height:100vh; overflow:hidden; background:#101820; }
+    #game-container canvas { display:block; width:100%; height:100%; image-rendering:pixelated; }
+    #game-container::after { content:""; position:absolute; inset:0; pointer-events:none; z-index:5; opacity:.17; background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.28) 2px 3px),linear-gradient(90deg,rgba(255,0,0,.025),rgba(0,255,0,.02),rgba(0,0,255,.035)); }
+    #fullscreen { position:fixed; right:14px; bottom:14px; z-index:10; border:1px solid #82909a; border-radius:4px; padding:9px 11px; color:#e2e8f0; background:rgba(10,16,22,.78); font:10px 'Press Start 2P',monospace; cursor:pointer; }
+    #fullscreen:hover { background:#334155; }
+  </style>
+</head>
+<body>
+  <main id="game-container" aria-label="Pixel Tank Battle game"></main>
+  <button id="fullscreen" type="button" aria-label="Toggle fullscreen">FULLSCREEN</button>
+  <script>
+    const matchState = { p1Chassis:'medium', p2Chassis:'medium', p1Score:0, p2Score:0, currentTheme:'city' };
+    const THEMES = {
+      city:    { name:'CITY', bg:0x252c30, floor:0x30383a, accent:0x697275, wall:0xa64f3e, light:0xd37a55, dark:0x63392f },
+      factory: { name:'FACTORY', bg:0x202a30, floor:0x28353a, accent:0x52656a, wall:0x66777a, light:0xa8b2aa, dark:0x39464a },
+      winter:  { name:'WINTER FOREST', bg:0x8299a0, floor:0xb9c8c8, accent:0xe3eeee, wall:0x557d83, light:0x91b5b3, dark:0x315259 },
+      desert:  { name:'DESERT', bg:0x9a7047, floor:0xb9905d, accent:0xd1ad75, wall:0x9e6841, light:0xd0a269, dark:0x65452f }
+    };
+    const CHASSIS_STATS = {
+      light:{name:'LIGHT TANK',hp:60,speed:210,turnRate:190,color:0x58b86b,size:29},
+      medium:{name:'MEDIUM TANK',hp:100,speed:150,turnRate:140,color:0x428bd0,size:35},
+      heavy:{name:'HEAVY TANK',hp:160,speed:95,turnRate:90,color:0xc9574e,size:41}
+    };
+    const FONT = '"Press Start 2P"';
+    function drawButton(scene,x,y,w,h,label,color,callback,fontSize=11) {
+      const box=scene.add.rectangle(x,y,w,h,color).setStrokeStyle(2,0xb8c4c8).setInteractive({useHandCursor:true});
+      box.on('pointerover',()=>box.setFillStyle(Phaser.Display.Color.GetColor(Phaser.Display.Color.IntegerToRGB(color).r+10,Phaser.Display.Color.IntegerToRGB(color).g+10,Phaser.Display.Color.IntegerToRGB(color).b+10)));
+      box.on('pointerout',()=>box.setFillStyle(color)); box.on('pointerdown',callback);
+      scene.add.text(x,y,label,{font:`${fontSize}px ${FONT}`,color:'#f8fafc',align:'center'}).setOrigin(.5).setDepth(1);
+      return box;
+    }
+
+    class MenuScene extends Phaser.Scene {
+      constructor(){super('MenuScene');}
+      create(){
+        const w=this.w=this.scale.width,h=this.h=this.scale.height;
+        this.scale.on('resize',this.handleResize,this);this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.scale.off('resize',this.handleResize,this));
+        this.cameras.main.setBackgroundColor('#101820');
+        this.add.rectangle(w/2,h/2,w,h,0x101820);
+        this.add.text(w/2,h*.12,'PIXEL TANK BATTLE',{font:`${Math.min(30,w/32)}px ${FONT}`,color:'#facc15',stroke:'#7c3d18',strokeThickness:7}).setOrigin(.5);
+        this.add.text(w/2,h*.19,'LOCAL 1V1  •  FIRST TO 3 ROUNDS',{font:`${Math.max(8,Math.min(12,w/75))}px ${FONT}`,color:'#aab7bd'}).setOrigin(.5);
+        this.add.text(w*.25,h*.29,'PLAYER 1',{font:`${Math.max(11,w/85)}px ${FONT}`,color:'#74d58a'}).setOrigin(.5);
+        this.add.text(w*.25,h*.34,'WASD: DRIVE  •  F: SHELL  •  G: MISSILE',{font:`${Math.max(7,w/140)}px ${FONT}`,color:'#9eabb0'}).setOrigin(.5);
+        this.add.text(w*.75,h*.29,'PLAYER 2',{font:`${Math.max(11,w/85)}px ${FONT}`,color:'#79b9f4'}).setOrigin(.5);
+        this.add.text(w*.75,h*.34,'ARROWS: DRIVE  •  K: SHELL  •  L: MISSILE',{font:`${Math.max(7,w/140)}px ${FONT}`,color:'#9eabb0'}).setOrigin(.5);
+        this.makePicker(w*.25,h*.56,1); this.makePicker(w*.75,h*.56,2);
+        this.add.text(w/2,h*.77,'SHELL: 15–20 DAMAGE  /  0.3 SEC COOLDOWN',{font:`${Math.max(7,w/145)}px ${FONT}`,color:'#d5dce0'}).setOrigin(.5);
+        this.add.text(w/2,h*.82,'MISSILE: 40–50 DAMAGE + BLAST  /  1.5 SEC',{font:`${Math.max(7,w/145)}px ${FONT}`,color:'#d5dce0'}).setOrigin(.5);
+        drawButton(this,w/2,h*.91,Math.min(310,w*.45),50,'START BATTLE',0x276b42,()=>{matchState.p1Score=0;matchState.p2Score=0;this.scene.start('GameScene');},12);
+        this.add.text(18,h-20,'TANKS: A/D + W/S     ARROWS + UP/DOWN',{font:`${Math.max(7,w/150)}px ${FONT}`,color:'#68777e'}).setOrigin(0,1);
+      }
+      handleResize(size){if(size.width!==this.w||size.height!==this.h)this.scene.restart();}
+      makePicker(x,y,player){
+        const types=['light','medium','heavy']; let idx=types.indexOf(player===1?matchState.p1Chassis:matchState.p2Chassis);
+        this.add.rectangle(x,y,Math.min(300,this.scale.width*.32),150,0x1c2930,.96).setStrokeStyle(2,player===1?0x4b8b5c:0x4779a4);
+        const title=this.add.text(x,y-42,'',{font:`12px ${FONT}`,color:'#fff'}).setOrigin(.5);
+        const stats=this.add.text(x,y+29,'',{font:`9px ${FONT}`,color:'#cbd5d1',align:'center',lineSpacing:9}).setOrigin(.5);
+        const icon=this.add.graphics();
+        const refresh=()=>{
+          const type=types[idx],s=CHASSIS_STATS[type];
+          if(player===1)matchState.p1Chassis=type;else matchState.p2Chassis=type;
+          title.setText(s.name);stats.setText(`${s.hp} HP     ${s.speed} SPEED\n${s.turnRate}° TURN / SEC`);
+          icon.clear(); icon.fillStyle(0x182126);icon.fillRect(x-34,y-8,s.size+8,25);icon.fillStyle(s.color);icon.fillRect(x-29,y-6,s.size,21);icon.fillStyle(0xc6d0c7);icon.fillRect(x-13,y-1,23,7);icon.fillStyle(0x26343a);icon.fillCircle(x-19,y+17,3);icon.fillCircle(x+3,y+17,3);
+        };
+        const prev=this.add.text(x-105,y,'◀',{font:`18px ${FONT}`,color:'#facc15'}).setOrigin(.5).setInteractive({useHandCursor:true}).on('pointerdown',()=>{idx=(idx+2)%3;refresh();});
+        const next=this.add.text(x+105,y,'▶',{font:`18px ${FONT}`,color:'#facc15'}).setOrigin(.5).setInteractive({useHandCursor:true}).on('pointerdown',()=>{idx=(idx+1)%3;refresh();});
+        refresh();
+      }
+    }
+
+    class GameScene extends Phaser.Scene {
+      constructor(){super('GameScene');}
+      create(){
+        this.w=this.scale.width; this.h=this.scale.height; this.roundOver=false;
+        this.scale.on('resize',this.handleResize,this);this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.scale.off('resize',this.handleResize,this));
+        const keys=Object.keys(THEMES);matchState.currentTheme=keys[Phaser.Math.Between(0,keys.length-1)];this.theme=THEMES[matchState.currentTheme];
+        this.arena={left:18,right:this.w-18,top:72,bottom:this.h-18};
+        this.physics.world.setBounds(this.arena.left,this.arena.top,this.arena.right-this.arena.left,this.arena.bottom-this.arena.top);
+        this.cameras.main.setBackgroundColor(this.theme.bg);
+        this.createWallTexture();this.createTextures();this.drawGround();
+        this.wallsGroup=this.physics.add.staticGroup();this.shellsGroup=this.physics.add.group({runChildUpdate:true});this.missilesGroup=this.physics.add.group({runChildUpdate:true});
+        this.generateArenaMap();
+        this.p1=this.createTank(Math.max(70,this.w*.095),this.h*.53,matchState.p1Chassis,0,1);
+        this.p2=this.createTank(Math.min(this.w-70,this.w*.905),this.h*.53,matchState.p2Chassis,180,2);
+        this.physics.add.collider(this.p1,this.wallsGroup);this.physics.add.collider(this.p2,this.wallsGroup);this.physics.add.collider(this.p1,this.p2);
+        this.physics.add.overlap(this.shellsGroup,this.wallsGroup,(shell,wall)=>this.onShellHitWall(shell,wall));
+        this.physics.add.overlap(this.shellsGroup,this.p1,(shell,tank)=>this.onTankHit(tank,shell));this.physics.add.overlap(this.shellsGroup,this.p2,(shell,tank)=>this.onTankHit(tank,shell));
+        this.physics.add.overlap(this.missilesGroup,this.wallsGroup,(missile,wall)=>this.onMissileHitWall(missile,wall));
+        this.physics.add.overlap(this.missilesGroup,this.p1,(missile,tank)=>this.onTankHit(tank,missile));this.physics.add.overlap(this.missilesGroup,this.p2,(missile,tank)=>this.onTankHit(tank,missile));
+        this.keysP1=this.input.keyboard.addKeys({up:'W',down:'S',left:'A',right:'D',fireShell:'F',fireMissile:'G'});
+        this.keysP2=this.input.keyboard.addKeys({up:'UP',down:'DOWN',left:'LEFT',right:'RIGHT',fireShell:'K',fireMissile:'L'});
+        this.cooldowns={p1shell:0,p1missile:0,p2shell:0,p2missile:0};this.createHUD();
+        this.input.keyboard.on('keydown-ESC',()=>this.scene.start('MenuScene'));
+      }
+      handleResize(size){if(size.width!==this.w||size.height!==this.h)this.scene.restart();}
+      createTextures(){
+        const g=this.make.graphics({x:0,y:0,add:false});
+        // Pixel-art tank sprites face right; treads, rollers, rivets and layered turret are part of the texture.
+        Object.entries(CHASSIS_STATS).forEach(([type,s])=>[1,2].forEach(player=>{
+          const size=s.size+18, c=player===1?s.color:0x4c91d0, dark=player===1?0x26352e:0x263340;
+          g.clear();g.fillStyle(0x141a1b);g.fillRoundedRect(3,4,size-6,size-8,5);
+          g.fillStyle(0x59615b);g.fillRoundedRect(5,6,size-10,size-12,4);
+          for(let i=0;i<4;i++){g.fillStyle(i%2?0x202929:0x313b38);g.fillRect(7+i*7,7,3,size-14);g.fillRect(7+i*7,size-10,3,3);}
+          g.fillStyle(dark);g.fillRoundedRect(9,9,size-19,size-18,4);g.fillStyle(c);g.fillRoundedRect(11,11,size-23,size-22,4);
+          g.fillStyle(0xffffff,.28);g.fillRect(14,12,size-31,3);g.fillStyle(0x1d2829);g.fillRect(size-17,size/2-4,17,8);
+          g.fillStyle(0x7c8981);g.fillRect(size-16,size/2-2,16,4);g.fillStyle(c);g.fillRoundedRect(size/2-6,size/2-7,19,14,4);
+          g.fillStyle(0xd9d5a2);g.fillRect(size/2+1,size/2-2,3,4);g.fillStyle(0x151d20);g.fillCircle(8,8,2);g.fillCircle(size-8,8,2);g.fillCircle(8,size-8,2);g.fillCircle(size-8,size-8,2);
+          g.generateTexture(`tank_${type}_p${player}`,size,size);
+        }));
+        g.clear();g.fillStyle(0xfce66c);g.fillCircle(5,5,4);g.fillStyle(0xfff6c5);g.fillRect(3,3,4,2);g.generateTexture('shell',10,10);
+        g.clear();g.fillStyle(0x252a2b);g.fillRect(0,2,24,8);g.fillStyle(0xf07836);g.fillRect(3,3,17,6);g.fillStyle(0xffd36a);g.fillRect(0,4,5,4);g.fillStyle(0xffa44d);g.fillTriangle(24,1,24,11,31,6);g.generateTexture('missile',32,12);
+        g.destroy();
+      }
+      drawGround(){
+        const g=this.add.graphics();g.fillStyle(this.theme.floor);g.fillRect(0,0,this.w,this.h);
+        const tile=64;for(let y=0;y<this.h;y+=tile)for(let x=0;x<this.w;x+=tile){
+          const n=((x/tile*17+y/tile*31)%7);g.fillStyle(n<2?this.theme.accent:this.theme.floor,.13);g.fillRect(x,y,tile-1,tile-1);
+          if(this.theme===THEMES.city){g.lineStyle(1,0x151b1d,.18);g.lineBetween(x+4,y+tile-8,x+tile-5,y+tile-8);}
+          if(this.theme===THEMES.factory){g.fillStyle(0x9caa9e,.32);g.fillCircle(x+8,y+8,2);g.fillCircle(x+tile-8,y+8,2);g.fillCircle(x+8,y+tile-8,2);g.fillCircle(x+tile-8,y+tile-8,2);}
+          if(this.theme===THEMES.winter){g.fillStyle(0xffffff,.23);g.fillCircle(x+18+(n*3),y+25,2);g.fillCircle(x+45,y+49,1);}
+          if(this.theme===THEMES.desert){g.lineStyle(2,0xe1bc80,.13);g.beginPath();g.arc(x+28,y+32,18,.15,2.8);g.strokePath();}
+        }
+        g.lineStyle(4,this.theme.accent,.8);g.strokeRect(this.arena.left,this.arena.top,this.arena.right-this.arena.left,this.arena.bottom-this.arena.top);g.setDepth(-5);
+      }
+      generateArenaMap(){
+        const cell=58, cols=Math.floor((this.w-180)/cell), rows=Math.floor((this.h-150)/cell), startX=(this.w-(cols-1)*cell)/2, startY=this.arena.top+76;
+        for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){
+          // Leave broad spawn lanes and a clear central route; random seed still changes cover each round.
+          const rel=c/(Math.max(1,cols-1));if((c<2||c>cols-3)&&r>0&&r<rows-1)continue;
+          if(c===Math.floor(cols/2)&&r===Math.floor(rows/2))continue;
+          if(Math.random()>.57)continue;
+          const x=startX+c*cell,y=startY+r*cell;
+          const wall=this.wallsGroup.create(x,y,'wall_'+matchState.currentTheme);wall.setDepth(1);wall.setImmovable(true);wall.body.setSize(42,42);wall.body.updateFromGameObject();wall.hp=1;
+          wall.setData('baseTint',0xffffff);
+        }
+      }
+      createWallTexture(){
+        const g=this.make.graphics({x:0,y:0,add:false}),t=this.theme;g.clear();
+        if(matchState.currentTheme==='winter'){
+          g.fillStyle(t.dark);g.fillRect(3,5,42,40);g.fillStyle(t.wall);g.fillTriangle(2,18,24,0,46,18);g.fillTriangle(5,23,24,5,43,23);g.fillStyle(t.light);g.fillRect(8,23,32,18);g.fillStyle(0xe6f2ef);g.fillTriangle(3,18,24,2,45,18);
+        }else if(matchState.currentTheme==='factory'){
+          g.fillStyle(t.dark);g.fillRect(2,2,46,46);g.fillStyle(t.wall);g.fillRect(5,5,40,40);g.fillStyle(t.light);g.fillRect(8,8,34,5);g.lineStyle(2,t.dark);g.lineBetween(8,24,42,24);g.lineBetween(24,9,24,42);g.fillStyle(0xe0c46e);[[8,8],[40,8],[8,40],[40,40]].forEach(([x,y])=>g.fillCircle(x,y,2));
+        }else if(matchState.currentTheme==='desert'){
+          g.fillStyle(t.dark);g.fillRect(3,5,42,40);g.fillStyle(t.wall);g.fillRect(5,3,40,39);g.fillStyle(t.light);g.fillRect(7,5,36,6);g.fillStyle(t.dark);g.fillRect(8,20,15,4);g.fillRect(25,30,16,4);g.fillStyle(0xe1bc80);g.fillRect(9,12,10,3);g.fillRect(28,10,12,3);
+        }else{
+          g.fillStyle(t.dark);g.fillRect(3,4,42,42);g.fillStyle(t.wall);g.fillRect(4,3,40,41);g.fillStyle(t.light);g.fillRect(5,5,38,4);g.fillStyle(t.dark);g.fillRect(5,18,38,3);g.fillRect(5,33,38,3);g.fillStyle(t.light);g.fillRect(15,8,3,10);g.fillRect(31,21,3,12);g.fillRect(9,36,3,6);g.fillStyle(0xf0ad77);g.fillRect(7,8,7,3);g.fillRect(27,24,4,3);
+        }
+        g.lineStyle(2,0x172024,.8);g.strokeRect(3,3,42,42);g.generateTexture('wall_'+matchState.currentTheme,48,48);g.destroy();
+      }
+      createTank(x,y,type,angle,player){
+        const stats=CHASSIS_STATS[type],tank=this.physics.add.sprite(x,y,`tank_${type}_p${player}`);
+        tank.setDepth(3).setAngle(angle).setCollideWorldBounds(true).setBounce(0).setDrag(0);tank.body.setSize(stats.size+2,stats.size-2);tank.body.setOffset((tank.width-stats.size-2)/2,(tank.height-stats.size+2)/2);
+        tank.hp=stats.hp;tank.maxHp=stats.hp;tank.chassisStats=stats;tank.player=player;tank.setMaxVelocity(stats.speed);return tank;
+      }
+      createHUD(){
+        const barW=Math.min(240,this.w*.24);
+        this.add.rectangle(this.w/2,34,this.w,68,0x10171b,.94).setDepth(10);
+        this.add.text(20,14,'P1',{font:`10px ${FONT}`,color:'#7ee08f'}).setDepth(12);
+        this.add.text(this.w-20,14,'P2',{font:`10px ${FONT}`,color:'#83c4ff'}).setOrigin(1,0).setDepth(12);
+        this.p1Bar=this.add.rectangle(20,39,barW,13,0x4ade80).setOrigin(0,0).setDepth(12);
+        this.p1Back=this.add.rectangle(20,39,barW,13,0x29383b).setOrigin(0,0).setDepth(11);
+        this.p2Back=this.add.rectangle(this.w-20-barW,39,barW,13,0x29383b).setOrigin(0,0).setDepth(11);
+        this.p2Bar=this.add.rectangle(this.w-20-barW,39,barW,13,0x60a5fa).setOrigin(0,0).setDepth(12);
+        this.scoreText=this.add.text(this.w/2,13,`P1 ${matchState.p1Score}  —  ${matchState.p2Score} P2`,{font:`${Math.max(10,Math.min(15,this.w/70))}px ${FONT}`,color:'#facc15'}).setOrigin(.5,0).setDepth(12);
+        this.themeText=this.add.text(this.w/2,43,this.theme.name,{font:`8px ${FONT}`,color:'#aebbc0'}).setOrigin(.5,0).setDepth(12);
+        this.p1Status=this.add.text(20,57,'SHELL READY  •  MISSILE READY',{font:`7px ${FONT}`,color:'#b4c0c4'}).setDepth(12);
+        this.p2Status=this.add.text(this.w-20,57,'SHELL READY  •  MISSILE READY',{font:`7px ${FONT}`,color:'#b4c0c4'}).setOrigin(1,0).setDepth(12);
+      }
+      update(time,delta){
+        if(this.roundOver)return;
+        this.drive(this.p1,this.keysP1,time,'p1');this.drive(this.p2,this.keysP2,time,'p2');
+        this.p1Bar.width=Math.max(0,this.p1Back.width*this.p1.hp/this.p1.maxHp);this.p2Bar.width=Math.max(0,this.p2Back.width*this.p2.hp/this.p2.maxHp);
+        this.p1Status.setText(this.cooldownText('p1',time));this.p2Status.setText(this.cooldownText('p2',time));
+        this.shellsGroup.children.each(p=>{if(p.active&&(time>p.expires||!this.physics.world.bounds.contains(p.x,p.y)))p.destroy();});
+        this.missilesGroup.children.each(p=>{if(p.active&&(time>p.expires||!this.physics.world.bounds.contains(p.x,p.y)))this.explodeMissile(p);});
+      }
+      cooldownText(prefix,time){const shell=Math.max(0,(this.cooldowns[prefix+'shell']-time)/1000),missile=Math.max(0,(this.cooldowns[prefix+'missile']-time)/1000);return `${shell?'SHELL '+shell.toFixed(1)+'s':'SHELL READY'}  •  ${missile?'MISSILE '+missile.toFixed(1)+'s':'MISSILE READY'}`;}
+      drive(tank,keys,time,prefix){
+        if(!tank.active)return;const stats=tank.chassisStats,dt=Math.min(.05, this.game.loop.delta/1000);
+        const steer=(keys.right.isDown?1:0)-(keys.left.isDown?1:0);if(steer)tank.angle+=steer*stats.turnRate*dt;
+        let drive=(keys.up.isDown?1:0)-(keys.down.isDown?1:0)*.55;
+        if(keys.up.isDown&&keys.down.isDown)drive=0;
+        const speed=drive<0?stats.speed*.55:stats.speed;
+        if(drive)this.physics.velocityFromRotation(tank.rotation,speed*drive,tank.body.velocity);else tank.setVelocity(0,0);
+        const sk=prefix+'shell',mk=prefix+'missile';
+        if(keys.fireShell.isDown&&time>=this.cooldowns[sk]){this.fireShell(tank);this.cooldowns[sk]=time+300;}
+        if(keys.fireMissile.isDown&&time>=this.cooldowns[mk]){this.fireMissile(tank);this.cooldowns[mk]=time+1500;}
+      }
+      spawnPoint(tank,offset){return{x:tank.x+Math.cos(tank.rotation)*offset,y:tank.y+Math.sin(tank.rotation)*offset};}
+      fireShell(tank){
+        const pos=this.spawnPoint(tank,tank.chassisStats.size*.72+9),shell=this.shellsGroup.create(pos.x,pos.y,'shell');
+        shell.setDepth(4).setCircle(4);shell.damage=Phaser.Math.Between(15,20);shell.owner=tank.player;shell.expires=this.time.now+(Math.hypot(this.w,this.h)/500+1)*1000;
+        this.physics.velocityFromRotation(tank.rotation,500,shell.body.velocity);shell.setRotation(tank.rotation);
+      }
+      fireMissile(tank){
+        const pos=this.spawnPoint(tank,tank.chassisStats.size*.72+13),missile=this.missilesGroup.create(pos.x,pos.y,'missile');
+        missile.setDepth(4).setSize(25,10);missile.damage=Phaser.Math.Between(40,50);missile.owner=tank.player;missile.expires=this.time.now+(Math.hypot(this.w,this.h)/260+1)*1000;
+        this.physics.velocityFromRotation(tank.rotation,260,missile.body.velocity);missile.setRotation(tank.rotation);
+      }
+      onShellHitWall(shell,wall){if(!shell.active)return;shell.destroy();wall.hp--;if(wall.hp<=0){this.createExplosionEffect(wall.x,wall.y,false);wall.destroy();}else wall.setTint(0xaaaaaa);}
+      onMissileHitWall(missile){if(missile.active)this.explodeMissile(missile);}
+      onTankHit(first,second){
+        // Arcade overlap callbacks can arrive in either order for group-vs-sprite pairs.
+        // Identify the projectile by its owner tag instead of assuming argument order.
+        const projectile=first&&first.owner!==undefined?first:second;
+        const tank=projectile===first?second:first;
+        if(!projectile||!tank||!projectile.active||!tank.active||projectile.owner===tank.player)return;
+        if(projectile.texture&&projectile.texture.key==='missile'){this.explodeMissile(projectile,tank);return;}
+        const damage=projectile.damage;projectile.destroy();this.damageTank(tank,damage);
+      }
+      explodeMissile(missile,directTank=null){
+        if(!missile.active)return;const {x,y}=missile;missile.destroy();this.createExplosionEffect(x,y,false);
+        const radius=90;
+        this.wallsGroup.children.each(w=>{if(w.active&&Phaser.Math.Distance.Between(x,y,w.x,w.y)<=radius)w.destroy();});
+        [this.p1,this.p2].forEach(t=>{if(t&&t.active&&t.player!==missile.owner){const d=Phaser.Math.Distance.Between(x,y,t.x,t.y);if(d<=radius){const falloff=Math.max(.35,1-d/radius);this.damageTank(t,Math.round(missile.damage*falloff));}}});
+      }
+      damageTank(tank,damage){
+        if(this.roundOver||!tank.active)return;tank.hp-=damage;tank.setTint(0xff6a52);
+        this.time.delayedCall(110,()=>{if(tank.active)tank.clearTint();});
+        if(tank.hp<=0){tank.hp=0;this.roundOver=true;this.createExplosionEffect(tank.x,tank.y,true);tank.setActive(false).setVisible(false);tank.body.enable=false;this.time.delayedCall(1100,()=>this.endRound(tank.player===1?2:1));}
+      }
+      createExplosionEffect(x,y,big){
+        this.cameras.main.shake(big?420:180,big?.012:.006);
+        const ring=this.add.circle(x,y,5,big?0xf97316:0xfacc15,.8).setDepth(8);this.tweens.add({targets:ring,radius:big?82:46,alpha:0,duration:big?480:270,onComplete:()=>ring.destroy()});
+        for(let i=0;i<(big?20:10);i++){const a=Math.random()*Math.PI*2,s=Phaser.Math.Between(45,big?220:130),p=this.add.rectangle(x,y,Phaser.Math.Between(3,7),Phaser.Math.Between(3,7),i%2?0xef6347:0xffd166).setDepth(8);this.tweens.add({targets:p,x:x+Math.cos(a)*s*.6,y:y+Math.sin(a)*s*.6,alpha:0,angle:Phaser.Math.Between(-180,180),duration:500,onComplete:()=>p.destroy()});}
+      }
+      endRound(winner){if(winner===1)matchState.p1Score++;else matchState.p2Score++;if(matchState.p1Score>=3||matchState.p2Score>=3)this.scene.start('GameOverScene',{winner});else this.scene.restart();}
+    }
+
+    class GameOverScene extends Phaser.Scene {
+      constructor(){super('GameOverScene');}
+      init(data){if(data&&data.winner)this.winner=data.winner;}
+      create(){const w=this.w=this.scale.width,h=this.h=this.scale.height;this.scale.on('resize',this.handleResize,this);this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.scale.off('resize',this.handleResize,this));this.cameras.main.setBackgroundColor('#101820');this.add.rectangle(w/2,h/2,w,h,0x101820,.97);
+        this.add.text(w/2,h*.3,`PLAYER ${this.winner} WINS!`,{font:`${Math.min(28,w/35)}px ${FONT}`,color:'#facc15',stroke:'#713f12',strokeThickness:6}).setOrigin(.5);
+        this.add.text(w/2,h*.4,`FINAL SCORE   ${matchState.p1Score} — ${matchState.p2Score}`,{font:`${Math.max(9,w/90)}px ${FONT}`,color:'#d4dde0'}).setOrigin(.5);
+        drawButton(this,w/2,h*.58,Math.min(340,w*.55),52,'REMATCH',0x276b42,()=>{matchState.p1Score=0;matchState.p2Score=0;this.scene.start('GameScene');},11);
+        drawButton(this,w/2,h*.7,Math.min(340,w*.55),52,'CHANGE TANKS',0x344b58,()=>this.scene.start('MenuScene'),11);
+      }
+      handleResize(size){if(size.width!==this.w||size.height!==this.h)this.scene.restart({winner:this.winner});}
+    }
+
+    const game=new Phaser.Game({
+      type:Phaser.AUTO,parent:'game-container',backgroundColor:'#101820',
+      scale:{mode:Phaser.Scale.RESIZE,width:window.innerWidth,height:window.innerHeight},
+      physics:{default:'arcade',arcade:{gravity:{x:0,y:0},debug:false}},
+      render:{antialias:false,pixelArt:true,roundPixels:true},scene:[MenuScene,GameScene,GameOverScene]
+    });
+    document.getElementById('fullscreen').addEventListener('click',async()=>{
+      try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen();}catch(e){}
+    });
+    document.addEventListener('fullscreenchange',()=>{document.getElementById('fullscreen').textContent=document.fullscreenElement?'EXIT FULL':'FULLSCREEN';});
+  </script>
+</body>
+</html>
