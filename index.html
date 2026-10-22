@@ -92,7 +92,7 @@
         this.physics.world.setBounds(this.arena.left,this.arena.top,this.arena.right-this.arena.left,this.arena.bottom-this.arena.top);
         this.cameras.main.setBackgroundColor(this.theme.bg);
         this.createWallTexture();this.createTextures();this.drawGround();
-        this.wallsGroup=this.physics.add.staticGroup();this.shellsGroup=this.physics.add.group({runChildUpdate:true});this.missilesGroup=this.physics.add.group({runChildUpdate:true});
+        this.wallsGroup=this.physics.add.staticGroup();this.shellsGroup=this.physics.add.group({runChildUpdate:true});this.missilesGroup=this.physics.add.group({runChildUpdate:true});this.armorDropsGroup=this.physics.add.group();this.armorDrops=[];
         this.generateArenaMap();
         this.p1=this.createTank(Math.max(70,this.w*.095),this.h*.53,matchState.p1Chassis,0,1);
         this.p2=this.createTank(Math.min(this.w-70,this.w*.905),this.h*.53,matchState.p2Chassis,180,2);
@@ -123,6 +123,9 @@
         }));
         g.clear();g.fillStyle(0xfce66c);g.fillCircle(5,5,4);g.fillStyle(0xfff6c5);g.fillRect(3,3,4,2);g.generateTexture('shell',10,10);
         g.clear();g.fillStyle(0x252a2b);g.fillRect(0,2,24,8);g.fillStyle(0xf07836);g.fillRect(3,3,17,6);g.fillStyle(0xffd36a);g.fillRect(0,4,5,4);g.fillStyle(0xffa44d);g.fillTriangle(24,1,24,11,31,6);g.generateTexture('missile',32,12);
+        g.clear();g.fillStyle(0xeab308);g.beginPath();g.moveTo(16,1);g.lineTo(29,6);g.lineTo(27,20);g.lineTo(22,27);g.lineTo(16,31);g.lineTo(10,27);g.lineTo(5,20);g.lineTo(3,6);g.closePath();g.fillPath();
+        g.lineStyle(2,0xfff3a3,1);g.beginPath();g.moveTo(16,5);g.lineTo(25,9);g.lineTo(23,19);g.lineTo(16,26);g.lineTo(9,19);g.lineTo(7,9);g.closePath();g.strokePath();
+        g.fillStyle(0xfff3a3);g.fillRect(14,10,4,11);g.fillRect(10,14,12,4);g.generateTexture('armor_drop',32,32);
         g.destroy();
       }
       drawGround(){
@@ -164,31 +167,65 @@
       createTank(x,y,type,angle,player){
         const stats=CHASSIS_STATS[type],tank=this.physics.add.sprite(x,y,`tank_${type}_p${player}`);
         tank.setDepth(3).setAngle(angle).setCollideWorldBounds(true).setBounce(0).setDrag(0);tank.body.setSize(stats.size+2,stats.size-2);tank.body.setOffset((tank.width-stats.size-2)/2,(tank.height-stats.size+2)/2);
-        tank.hp=stats.hp;tank.maxHp=stats.hp;tank.chassisStats=stats;tank.player=player;tank.setMaxVelocity(stats.speed);return tank;
+        tank.hp=stats.hp;tank.maxHp=stats.hp;tank.armor=0;tank.maxArmor=100;tank.chassisStats=stats;tank.player=player;tank.worldHud=this.add.graphics().setDepth(7);tank.setMaxVelocity(stats.speed);return tank;
       }
       createHUD(){
         const barW=Math.min(240,this.w*.24);
-        this.add.rectangle(this.w/2,34,this.w,68,0x10171b,.94).setDepth(10);
+        this.add.rectangle(this.w/2,41,this.w,82,0x10171b,.94).setDepth(10);
         this.add.text(20,14,'P1',{font:`10px ${FONT}`,color:'#7ee08f'}).setDepth(12);
         this.add.text(this.w-20,14,'P2',{font:`10px ${FONT}`,color:'#83c4ff'}).setOrigin(1,0).setDepth(12);
-        this.p1Bar=this.add.rectangle(20,39,barW,13,0x4ade80).setOrigin(0,0).setDepth(12);
         this.p1Back=this.add.rectangle(20,39,barW,13,0x29383b).setOrigin(0,0).setDepth(11);
+        this.p1Bar=this.add.rectangle(20,39,barW,13,0x4ade80).setOrigin(0,0).setDepth(12);
         this.p2Back=this.add.rectangle(this.w-20-barW,39,barW,13,0x29383b).setOrigin(0,0).setDepth(11);
         this.p2Bar=this.add.rectangle(this.w-20-barW,39,barW,13,0x60a5fa).setOrigin(0,0).setDepth(12);
+        this.p1ArmorBack=this.add.rectangle(20,55,barW,7,0x423914).setOrigin(0,0).setDepth(11).setVisible(false);
+        this.p1ArmorBar=this.add.rectangle(20,55,barW,7,0xeab308).setOrigin(0,0).setDepth(12).setVisible(false);
+        this.p2ArmorBack=this.add.rectangle(this.w-20-barW,55,barW,7,0x423914).setOrigin(0,0).setDepth(11).setVisible(false);
+        this.p2ArmorBar=this.add.rectangle(this.w-20-barW,55,barW,7,0xeab308).setOrigin(0,0).setDepth(12).setVisible(false);
         this.scoreText=this.add.text(this.w/2,13,`P1 ${matchState.p1Score}  —  ${matchState.p2Score} P2`,{font:`${Math.max(10,Math.min(15,this.w/70))}px ${FONT}`,color:'#facc15'}).setOrigin(.5,0).setDepth(12);
         this.themeText=this.add.text(this.w/2,43,this.theme.name,{font:`8px ${FONT}`,color:'#aebbc0'}).setOrigin(.5,0).setDepth(12);
-        this.p1Status=this.add.text(20,57,'SHELL READY  •  MISSILE READY',{font:`7px ${FONT}`,color:'#b4c0c4'}).setDepth(12);
-        this.p2Status=this.add.text(this.w-20,57,'SHELL READY  •  MISSILE READY',{font:`7px ${FONT}`,color:'#b4c0c4'}).setOrigin(1,0).setDepth(12);
+        this.p1Status=this.add.text(20,68,'SHELL READY  •  MISSILE READY',{font:`7px ${FONT}`,color:'#b4c0c4'}).setDepth(12);
+        this.p2Status=this.add.text(this.w-20,68,'SHELL READY  •  MISSILE READY',{font:`7px ${FONT}`,color:'#b4c0c4'}).setOrigin(1,0).setDepth(12);
       }
       update(time,delta){
         if(this.roundOver)return;
         this.drive(this.p1,this.keysP1,time,'p1');this.drive(this.p2,this.keysP2,time,'p2');
         this.p1Bar.width=Math.max(0,this.p1Back.width*this.p1.hp/this.p1.maxHp);this.p2Bar.width=Math.max(0,this.p2Back.width*this.p2.hp/this.p2.maxHp);
+        this.updateArmorHud(this.p1,this.p1ArmorBack,this.p1ArmorBar);this.updateArmorHud(this.p2,this.p2ArmorBack,this.p2ArmorBar);
+        this.updateWorldTankHud(this.p1);this.updateWorldTankHud(this.p2);
         this.p1Status.setText(this.cooldownText('p1',time));this.p2Status.setText(this.cooldownText('p2',time));
+        this.armorDrops=this.armorDrops.filter(drop=>{
+          if(!drop.sprite.active)return false;
+          if(time>=drop.expires){this.removeArmorDrop(drop);return false;}
+          if(drop.expires-time<=3000)drop.sprite.setAlpha(Math.floor(time/75)%2?1:.18);else drop.sprite.setAlpha(1);
+          return true;
+        });
+        this.checkArmorDropPickups();
         this.shellsGroup.children.each(p=>{if(p.active&&(time>p.expires||!this.physics.world.bounds.contains(p.x,p.y)))p.destroy();});
         this.missilesGroup.children.each(p=>{if(p.active&&(time>p.expires||!this.physics.world.bounds.contains(p.x,p.y)))this.explodeMissile(p);});
       }
-      cooldownText(prefix,time){const shell=Math.max(0,(this.cooldowns[prefix+'shell']-time)/1000),missile=Math.max(0,(this.cooldowns[prefix+'missile']-time)/1000);return `${shell?'SHELL '+shell.toFixed(1)+'s':'SHELL READY'}  •  ${missile?'MISSILE '+missile.toFixed(1)+'s':'MISSILE READY'}`;}
+      checkArmorDropPickups(){
+        for(const drop of [...this.armorDrops]){
+          if(!drop.sprite.active)continue;
+          for(const tank of [this.p1,this.p2]){
+            if(!tank.active)continue;
+            const a=tank.body,b=drop.sprite.body;if(!a||!b)continue;
+            if(Phaser.Geom.Intersects.RectangleToRectangle(new Phaser.Geom.Rectangle(a.x,a.y,a.width,a.height),new Phaser.Geom.Rectangle(b.x,b.y,b.width,b.height)))this.onArmorDropOverlap(tank,drop.sprite);
+          }
+        }
+      }
+      updateArmorHud(tank,background,bar){
+        const active=tank.active&&tank.armor>0;background.setVisible(active);bar.setVisible(active);
+        if(active)bar.width=background.width*Math.min(100,tank.armor)/100;
+      }
+      updateWorldTankHud(tank){
+        if(!tank.active||!tank.worldHud)return;
+        const g=tank.worldHud,w=tank.chassisStats.size+14,x=tank.x-w/2,y=tank.y+tank.chassisStats.size/2+8;
+        g.clear();g.fillStyle(0x101820,.9);g.fillRect(x-1,y-1,w+2,6);
+        g.fillStyle(0x29383b);g.fillRect(x,y,w,4);g.fillStyle(tank.player===1?0x4ade80:0x60a5fa);g.fillRect(x,y,w*Math.max(0,tank.hp/tank.maxHp),4);
+        if(tank.armor>0){g.fillStyle(0x423914);g.fillRect(x,y+5,w,3);g.fillStyle(0xeab308);g.fillRect(x,y+5,w*Math.min(100,tank.armor)/100,3);}
+      }
+      cooldownText(prefix,time){ const shell=Math.max(0,(this.cooldowns[prefix+'shell']-time)/1000),missile=Math.max(0,(this.cooldowns[prefix+'missile']-time)/1000);return `${shell?'SHELL '+shell.toFixed(1)+'s':'SHELL READY'}  •  ${missile?'MISSILE '+missile.toFixed(1)+'s':'MISSILE READY'}`;}
       drive(tank,keys,time,prefix){
         if(!tank.active)return;const stats=tank.chassisStats,dt=Math.min(.05, this.game.loop.delta/1000);
         const steer=(keys.right.isDown?1:0)-(keys.left.isDown?1:0);if(steer)tank.angle+=steer*stats.turnRate*dt;
@@ -211,7 +248,28 @@
         missile.setDepth(4).setSize(25,10);missile.damage=Phaser.Math.Between(40,50);missile.owner=tank.player;missile.expires=this.time.now+(Math.hypot(this.w,this.h)/260+1)*1000;
         this.physics.velocityFromRotation(tank.rotation,260,missile.body.velocity);missile.setRotation(tank.rotation);
       }
-      onShellHitWall(shell,wall){if(!shell.active)return;shell.destroy();wall.hp--;if(wall.hp<=0){this.createExplosionEffect(wall.x,wall.y,false);wall.destroy();}else wall.setTint(0xaaaaaa);}
+      onShellHitWall(shell,wall){if(!shell.active||!wall.active)return;shell.destroy();wall.hp--;if(wall.hp<=0)this.destroyWall(wall);else wall.setTint(0xaaaaaa);}
+      destroyWall(wall,showEffect=true){if(!wall||!wall.active)return;if(showEffect)this.createExplosionEffect(wall.x,wall.y,false);wall.destroy();if(Math.random()<.1)this.spawnArmorDrop(wall.x,wall.y);}
+      spawnArmorDrop(x,y){
+        const aura=this.add.circle(x,y,22,0xeab308,.18).setDepth(1.5);
+        this.tweens.add({targets:aura,alpha:.42,scale:1.35,duration:650,yoyo:true,repeat:-1});
+        const sprite=this.armorDropsGroup.create(x,y,'armor_drop').setDepth(2).setScale(.9);
+        sprite.body.setAllowGravity(false);sprite.body.setImmovable(true);sprite.body.setCircle(13);
+        this.tweens.add({targets:sprite,scale:.98,y:y-3,duration:550,yoyo:true,repeat:-1,ease:'Sine.InOut'});
+        const drop={sprite,aura,expires:this.time.now+Phaser.Math.Between(10000,15000)};sprite.dropData=drop;this.armorDrops.push(drop);
+      }
+      removeArmorDrop(drop){
+        if(!drop)return;this.tweens.killTweensOf(drop.aura);this.tweens.killTweensOf(drop.sprite);if(drop.aura&&drop.aura.active)drop.aura.destroy();
+        if(drop.sprite&&drop.sprite.active)drop.sprite.destroy();
+      }
+      onArmorDropOverlap(tank,sprite){
+        const drop=sprite&&sprite.dropData;if(!drop||!tank||!tank.active||!sprite.active)return;
+        if(this.time.now>=drop.expires){this.removeArmorDrop(drop);this.armorDrops=this.armorDrops.filter(item=>item!==drop);return;}
+        if(tank.hp>=tank.maxHp&&tank.armor>=tank.maxArmor)return;
+        const healed=Math.min(tank.maxHp-tank.hp,100);tank.hp+=healed;
+        tank.armor=Math.min(tank.maxArmor,tank.armor+(100-healed));this.removeArmorDrop(drop);
+        this.armorDrops=this.armorDrops.filter(item=>item!==drop);
+      }
       onMissileHitWall(missile){if(missile.active)this.explodeMissile(missile);}
       onTankHit(first,second){
         // Arcade overlap callbacks can arrive in either order for group-vs-sprite pairs.
@@ -225,13 +283,14 @@
       explodeMissile(missile,directTank=null){
         if(!missile.active)return;const {x,y}=missile;missile.destroy();this.createExplosionEffect(x,y,false);
         const radius=90;
-        this.wallsGroup.children.each(w=>{if(w.active&&Phaser.Math.Distance.Between(x,y,w.x,w.y)<=radius)w.destroy();});
+        this.wallsGroup.children.each(w=>{if(w.active&&Phaser.Math.Distance.Between(x,y,w.x,w.y)<=radius)this.destroyWall(w,false);});
         [this.p1,this.p2].forEach(t=>{if(t&&t.active&&t.player!==missile.owner){const d=Phaser.Math.Distance.Between(x,y,t.x,t.y);if(d<=radius){const falloff=Math.max(.35,1-d/radius);this.damageTank(t,Math.round(missile.damage*falloff));}}});
       }
       damageTank(tank,damage){
-        if(this.roundOver||!tank.active)return;tank.hp-=damage;tank.setTint(0xff6a52);
+        if(this.roundOver||!tank.active)return;
+        const absorbed=Math.min(tank.armor,damage);tank.armor-=absorbed;tank.hp-=damage-absorbed;tank.hp=Math.max(0,tank.hp);tank.setTint(0xff6a52);
         this.time.delayedCall(110,()=>{if(tank.active)tank.clearTint();});
-        if(tank.hp<=0){tank.hp=0;this.roundOver=true;this.createExplosionEffect(tank.x,tank.y,true);tank.setActive(false).setVisible(false);tank.body.enable=false;this.time.delayedCall(1100,()=>this.endRound(tank.player===1?2:1));}
+        if(tank.hp<=0){tank.hp=0;this.roundOver=true;this.createExplosionEffect(tank.x,tank.y,true);tank.worldHud.setVisible(false);tank.setActive(false).setVisible(false);tank.body.enable=false;this.time.delayedCall(1100,()=>this.endRound(tank.player===1?2:1));}
       }
       createExplosionEffect(x,y,big){
         this.cameras.main.shake(big?420:180,big?.012:.006);
