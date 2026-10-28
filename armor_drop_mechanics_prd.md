@@ -10,8 +10,8 @@ The Armor Drop system incentivizes active map exploration and tactical wall dest
 ---
 
 ## 2. Spawning Mechanics & Lifespan
-* **Drop Trigger:** Each destroyed wall tile rolls an independent **30% drop chance**.
-  * When a missile destroys multiple wall blocks in an area-of-effect blast, **each** destroyed block rolls its 30% chance independently.
+* **Drop Trigger:** Each destroyed wall tile rolls an independent **10% drop chance**.
+  * When a missile destroys multiple wall blocks in an area-of-effect blast, **each** destroyed block independently rolls its 10% chance.
 * **Lifespan:** Drops remain active on the arena map for **10 to 15 seconds**.
   * During the final 3 seconds before despawning, the item flashes rapidly to warn players.
 * **Visual Styling:** A pulsing golden shield icon (`0xeab308`) floating slightly above the map tile with a background aura.
