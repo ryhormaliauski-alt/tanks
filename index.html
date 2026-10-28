@@ -691,7 +691,7 @@
         }
       }
       createExplosionEffect(x,y,big){
-        gameAudio.explosion(big);this.cameras.main.shake(big?420:180,big?.012:.006);
+        gameAudio.explosion(big);this.cameras.main.shake(big?420:180,big?.006:.003);
         const k=big?1:.6,ADD=Phaser.BlendModes.ADD;
         this.stampDecal('scorch',x,y,big?1.5:.85,Phaser.Math.Between(0,360),big?.9:.7);
         const flash=this.add.image(x,y,'puff').setTint(0xfff3c0).setBlendMode(ADD).setDepth(9).setScale(.4);

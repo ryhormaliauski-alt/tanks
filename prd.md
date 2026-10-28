@@ -94,6 +94,6 @@ Each round selects one of four themes with distinct color palettes and obstacle 
 ---
 
 ## 8. Interface & Audio-Visual Style
-* **Visuals:** Retro 8-bit / 16-bit pixel-art aesthetics with scanline CRT effects.
+* **Visuals:** Retro 8-bit / 16-bit pixel-art aesthetics with scanline CRT effects. Explosion camera shake uses reduced amplitudes (0.006 for large explosions, 0.003 for smaller explosions) while preserving the existing shake durations.
 * **HUD:** Top header displaying P1 & P2 real-time health bars, round score tracker, and weapon cooldown indicators.
 * **End Screen:** Match victory banner with options to rematch or re-configure tank chassis.
