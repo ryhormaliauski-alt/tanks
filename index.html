@@ -121,6 +121,19 @@
         ctx.fillStyle='#fffbe0';ctx.fillRect(14,8,4,15);ctx.fillRect(10,13,12,4);
         ctx.fillStyle='rgba(255,255,255,.35)';ctx.beginPath();ctx.moveTo(16,4);ctx.lineTo(8,7);ctx.lineTo(9,12);ctx.lineTo(16,9);ctx.fill();
       });
+      makeTex(scene,'rocket_launcher_drop',32,32,ctx=>{
+        blob(ctx,16,16,16,'255,125,55',.3);
+        ctx.save();ctx.translate(16,16);ctx.rotate(-.55);
+        let g=ctx.createLinearGradient(0,-5,0,5);g.addColorStop(0,'#d7ded6');g.addColorStop(.45,'#737d78');g.addColorStop(1,'#303a3a');
+        ctx.fillStyle=g;rrect(ctx,-11,-4.5,21,9,3);ctx.fill();ctx.strokeStyle='#202827';ctx.lineWidth=1.4;ctx.stroke();
+        ctx.fillStyle='#272e2d';rrect(ctx,-14,-3,-5,6,1.5);ctx.fill();
+        ctx.fillStyle='#d75c32';ctx.beginPath();ctx.moveTo(10,-5);ctx.lineTo(15,-3);ctx.lineTo(15,3);ctx.lineTo(10,5);ctx.closePath();ctx.fill();ctx.stroke();
+        ctx.fillStyle='#eab308';ctx.fillRect(-4,-3.3,2,6.6);
+        ctx.fillStyle='#29312f';ctx.beginPath();ctx.moveTo(-2,3);ctx.lineTo(3,3);ctx.lineTo(5,9);ctx.lineTo(1,8);ctx.lineTo(-2,10);ctx.closePath();ctx.fill();
+        ctx.fillStyle='#c2cbc3';rrect(ctx,-2,-7,7,2.4,1);ctx.fill();
+        ctx.restore();
+        ctx.strokeStyle='rgba(255,230,190,.8)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(16,16,14,0,Math.PI*2);ctx.stroke();
+      });
       makeTex(scene,'puff',64,64,ctx=>{const g=ctx.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(255,255,255,.95)');g.addColorStop(.35,'rgba(255,255,255,.55)');g.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=g;ctx.fillRect(0,0,64,64);});
       makeTex(scene,'scorch',96,96,ctx=>{blob(ctx,48,48,48,'8,6,4',.7);for(let i=0;i<14;i++)blob(ctx,rnd(18,78),rnd(18,78),rnd(6,14),'6,5,4',.25);});
       makeTex(scene,'trackmark',7,4,ctx=>{ctx.fillStyle='rgba(0,0,0,.5)';rrect(ctx,0,0,7,4,1.5);ctx.fill();});
@@ -182,6 +195,13 @@
       }
       shootShell(){if(!this.context||!this.enabled)return;const at=this.context.currentTime;this.noise(.09,.18,2600,at);this.playTone(125,'triangle',.12,.13,at);}
       shootMissile(){if(!this.context||!this.enabled)return;const at=this.context.currentTime;this.noise(.34,.13,1800,at);this.playTone(240,'sawtooth',.3,.055,at);}
+      airplane(){
+        if(!this.context||!this.enabled)return;const ctx=this.context,at=ctx.currentTime,osc=ctx.createOscillator(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
+        osc.type='sawtooth';osc.frequency.setValueAtTime(165,at);osc.frequency.exponentialRampToValueAtTime(72,at+1.5);
+        filter.type='lowpass';filter.frequency.setValueAtTime(950,at);filter.frequency.exponentialRampToValueAtTime(240,at+1.5);
+        gain.gain.setValueAtTime(.0001,at);gain.gain.linearRampToValueAtTime(.09,at+.16);gain.gain.exponentialRampToValueAtTime(.0001,at+1.55);
+        osc.connect(filter);filter.connect(gain);gain.connect(this.master);osc.start(at);osc.stop(at+1.58);this.noise(1.1,.035,900,at);
+      }
       explosion(big=false){if(!this.context||!this.enabled)return;const at=this.context.currentTime;this.noise(big?.55:.28,big?.34:.2,big?900:1500,at);this.playTone(big?62:95,'sawtooth',big?.42:.2,big?.2:.12,at);}
       setEngine(id,active,intensity=0){
         if(!this.context)return;let voice=this.engines.get(id);
@@ -248,7 +268,7 @@
         this.physics.world.setBounds(0,0,this.w,this.h);this.cameras.main.setBounds(0,0,this.w,this.h);
         this.cameras.main.setBackgroundColor(this.theme.bg);
         this.createWallTexture();this.createTextures();this.drawGround();
-        this.wallsGroup=this.physics.add.staticGroup();this.shellsGroup=this.physics.add.group({runChildUpdate:true});this.missilesGroup=this.physics.add.group({runChildUpdate:true});this.armorDropsGroup=this.physics.add.group();this.armorDrops=[];
+        this.wallsGroup=this.physics.add.staticGroup();this.shellsGroup=this.physics.add.group({runChildUpdate:true});this.missilesGroup=this.physics.add.group({runChildUpdate:true});this.armorDropsGroup=this.physics.add.group();this.armorDrops=[];this.rocketLauncherDropsGroup=this.physics.add.group();this.rocketLauncherDrops=[];
         this.generateArenaMap();
         this.tanks=this.physics.add.group();this.enemies=[];
         this.p1=this.createTank(Math.max(70,this.w*.095),this.h*.53,matchState.p1Chassis,0,1);this.tanks.add(this.p1);
@@ -262,6 +282,7 @@
         this.physics.add.overlap(this.missilesGroup,this.wallsGroup,(missile,wall)=>this.onMissileHitWall(missile,wall));
         this.physics.add.overlap(this.missilesGroup,this.tanks,(missile,tank)=>this.onTankHit(tank,missile));
         if(matchState.mode==='solo')this.spawnEnemies();
+        this.spawnMapRocketLauncherDrops();
         this.keysP1=matchState.mode==='solo'?this.input.keyboard.addKeys({up:'W',down:'S',left:'A',right:'D',fireShell:'F',fireMissile:'G',up2:'UP',down2:'DOWN',left2:'LEFT',right2:'RIGHT'}):this.input.keyboard.addKeys({up:'W',down:'S',left:'A',right:'D',fireShell:'F',fireMissile:'G'});
         this.keysP2=matchState.mode==='local'?this.input.keyboard.addKeys({up:'UP',down:'DOWN',left:'LEFT',right:'RIGHT',fireShell:'K',fireMissile:'L'}):null;
         this.cooldowns={p1shell:0,p1missile:0,p2shell:0,p2missile:0};this.createHUD();
@@ -433,6 +454,13 @@
           return true;
         });
         this.checkArmorDropPickups();
+        this.rocketLauncherDrops=this.rocketLauncherDrops.filter(drop=>{
+          if(!drop.sprite.active)return false;
+          if(time>=drop.expires){this.removeRocketLauncherDrop(drop);return false;}
+          if(drop.expires-time<=3000)drop.sprite.setAlpha(Math.floor(time/75)%2?1:.18);else drop.sprite.setAlpha(1);
+          return true;
+        });
+        this.checkRocketLauncherDropPickups();
         this.shellsGroup.children.each(p=>{if(p.active&&(time>p.expires||!this.physics.world.bounds.contains(p.x,p.y)))p.destroy();});
         this.missilesGroup.children.each(p=>{if(!p.active)return;if(time>p.expires||!this.physics.world.bounds.contains(p.x,p.y)){this.explodeMissile(p);return;}if(time>(p.nextTrail||0)){p.nextTrail=time+30;this.missileTrail(p);}});
       }
@@ -546,7 +574,7 @@
         this.physics.velocityFromRotation(tank.rotation,260,missile.body.velocity);missile.setRotation(tank.rotation);
       }
       onShellHitWall(shell,wall){if(!shell.active||!wall.active)return;this.hitSpark(shell.x,shell.y,0xffd98a);shell.destroy();wall.hp--;if(wall.hp<=0)this.destroyWall(wall);else wall.setTint(0xaaaaaa);}
-      destroyWall(wall,showEffect=true){if(!wall||!wall.active)return;this.stampDecal('scorch',wall.x,wall.y,.55,Phaser.Math.Between(0,360),.6);if(showEffect)this.createExplosionEffect(wall.x,wall.y,false);wall.destroy();if(Math.random()<.1)this.spawnArmorDrop(wall.x,wall.y);}
+      destroyWall(wall,showEffect=true){if(!wall||!wall.active)return;this.stampDecal('scorch',wall.x,wall.y,.55,Phaser.Math.Between(0,360),.6);if(showEffect)this.createExplosionEffect(wall.x,wall.y,false);wall.destroy();if(Math.random()<.1)this.spawnArmorDrop(wall.x,wall.y);if(Math.random()<.01)this.spawnRocketLauncherDrop(wall.x,wall.y);}
       spawnArmorDrop(x,y){
         const aura=this.add.circle(x,y,22,0xeab308,.18).setDepth(1.5);
         this.tweens.add({targets:aura,alpha:.42,scale:1.35,duration:650,yoyo:true,repeat:-1});
@@ -567,6 +595,72 @@
         tank.armor=Math.min(tank.maxArmor,tank.armor+(100-healed));this.removeArmorDrop(drop);
         this.armorDrops=this.armorDrops.filter(item=>item!==drop);
       }
+      spawnMapRocketLauncherDrops(){
+        const count=Phaser.Math.Between(0,2);
+        for(let i=0;i<count;i++){
+          let x=0,y=0,placed=false;
+          for(let attempt=0;attempt<80&&!placed;attempt++){
+            x=Phaser.Math.Between(Math.floor(this.arena.left+32),Math.floor(this.arena.right-32));y=Phaser.Math.Between(Math.floor(this.arena.top+32),Math.floor(this.arena.bottom-32));
+            const clearWalls=this.wallsGroup.getChildren().every(w=>!w.active||Phaser.Math.Distance.Between(x,y,w.x,w.y)>52);
+            const clearTanks=this.tanks.getChildren().every(t=>!t.active||Phaser.Math.Distance.Between(x,y,t.x,t.y)>62);
+            const clearDrops=this.rocketLauncherDrops.every(drop=>!drop.sprite.active||Phaser.Math.Distance.Between(x,y,drop.sprite.x,drop.sprite.y)>52);
+            if(clearWalls&&clearTanks&&clearDrops)placed=true;
+          }
+          if(placed)this.spawnRocketLauncherDrop(x,y);
+        }
+      }
+      spawnRocketLauncherDrop(x,y){
+        const aura=this.add.circle(x,y,22,0xf97316,.18).setDepth(1.5);
+        this.tweens.add({targets:aura,alpha:.4,scale:1.35,duration:650,yoyo:true,repeat:-1});
+        const sprite=this.rocketLauncherDropsGroup.create(x,y,'rocket_launcher_drop').setDepth(2).setScale(.9);
+        sprite.body.setAllowGravity(false);sprite.body.setImmovable(true);sprite.body.setCircle(13);
+        this.tweens.add({targets:sprite,scale:.98,y:y-3,duration:550,yoyo:true,repeat:-1,ease:'Sine.InOut'});
+        const drop={sprite,aura,expires:this.time.now+Phaser.Math.Between(10000,15000)};sprite.dropData=drop;this.rocketLauncherDrops.push(drop);
+      }
+      removeRocketLauncherDrop(drop){
+        if(!drop)return;this.tweens.killTweensOf(drop.aura);this.tweens.killTweensOf(drop.sprite);if(drop.aura&&drop.aura.active)drop.aura.destroy();
+        if(drop.sprite&&drop.sprite.active)drop.sprite.destroy();
+      }
+      checkRocketLauncherDropPickups(){
+        for(const drop of [...this.rocketLauncherDrops]){
+          if(!drop.sprite.active)continue;
+          for(const tank of this.tanks.getChildren()){
+            if(!tank.active)continue;
+            const a=tank.body,b=drop.sprite.body;if(!a||!b)continue;
+            if(Phaser.Geom.Intersects.RectangleToRectangle(new Phaser.Geom.Rectangle(a.x,a.y,a.width,a.height),new Phaser.Geom.Rectangle(b.x,b.y,b.width,b.height)))this.onRocketLauncherDropOverlap(tank,drop.sprite);
+          }
+        }
+      }
+      onRocketLauncherDropOverlap(tank,sprite){
+        const drop=sprite&&sprite.dropData;if(!drop||!tank||!tank.active||!sprite.active)return;
+        if(this.time.now>=drop.expires){this.removeRocketLauncherDrop(drop);this.rocketLauncherDrops=this.rocketLauncherDrops.filter(item=>item!==drop);return;}
+        this.removeRocketLauncherDrop(drop);this.rocketLauncherDrops=this.rocketLauncherDrops.filter(item=>item!==drop);this.launchRocketBarrage(tank);
+      }
+      launchRocketBarrage(ownerTank){
+        gameAudio.airplane();
+        for(let i=0;i<5;i++){
+          const x=Phaser.Math.FloatBetween(this.arena.left+14,this.arena.right-14),y=Phaser.Math.FloatBetween(this.arena.top+14,this.arena.bottom-14),delay=i*85;
+          this.time.delayedCall(delay,()=>{
+            if(!this.sys.isActive())return;
+            const rocket=this.add.image(x,this.arena.top+8,'missile').setDepth(9).setRotation(Math.PI/2).setScale(.8).setTint(0xffae55);
+            const duration=Phaser.Math.Clamp((y-(this.arena.top+8))*.48,180,420);
+            this.tweens.add({targets:rocket,y,duration,ease:'Quad.In',onComplete:()=>{
+              if(!rocket.active)return;rocket.destroy();this.createExplosionEffect(x,y,false);
+              this.resolveMissileBlast(x,y,Phaser.Math.Between(40,50),ownerTank,true);
+            }});
+          });
+        }
+      }
+      checkArmorDropPickups(){
+        for(const drop of [...this.armorDrops]){
+          if(!drop.sprite.active)continue;
+          for(const tank of this.tanks.getChildren()){
+            if(!tank.active)continue;
+            const a=tank.body,b=drop.sprite.body;if(!a||!b)continue;
+            if(Phaser.Geom.Intersects.RectangleToRectangle(new Phaser.Geom.Rectangle(a.x,a.y,a.width,a.height),new Phaser.Geom.Rectangle(b.x,b.y,b.width,b.height)))this.onArmorDropOverlap(tank,drop.sprite);
+          }
+        }
+      }
       onMissileHitWall(missile){if(missile.active)this.explodeMissile(missile);}
       onTankHit(first,second){
         // Arcade overlap callbacks can arrive in either order for group-vs-sprite pairs.
@@ -579,9 +673,12 @@
       }
       explodeMissile(missile,directTank=null){
         if(!missile.active)return;const {x,y}=missile;missile.destroy();this.createExplosionEffect(x,y,false);
+        this.resolveMissileBlast(x,y,missile.damage,missile.ownerTank,false);
+      }
+      resolveMissileBlast(x,y,damage,ownerTank,includeOwner){
         const radius=90;
         this.wallsGroup.children.each(w=>{if(w.active&&Phaser.Math.Distance.Between(x,y,w.x,w.y)<=radius)this.destroyWall(w,false);});
-        this.tanks.getChildren().forEach(t=>{if(t&&t.active&&t!==missile.ownerTank){const d=Phaser.Math.Distance.Between(x,y,t.x,t.y);if(d<=radius){const falloff=Math.max(.35,1-d/radius);this.damageTank(t,Math.round(missile.damage*falloff),missile.ownerTank);}}});
+        this.tanks.getChildren().forEach(t=>{if(t&&t.active&&(includeOwner||t!==ownerTank)){const d=Phaser.Math.Distance.Between(x,y,t.x,t.y);if(d<=radius){const falloff=Math.max(.35,1-d/radius);this.damageTank(t,Math.round(damage*falloff),ownerTank);}}});
       }
       damageTank(tank,damage,attacker=null){
         if(this.roundOver||!tank.active)return;
