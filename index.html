@@ -770,12 +770,12 @@
       }
       launchRocketBarrage(ownerTank){
         gameAudio.airplane();
-        for(let i=0;i<5;i++){
+        for(let i=0;i<10;i++){
           const x=Phaser.Math.FloatBetween(this.arena.left+14,this.arena.right-14),y=Phaser.Math.FloatBetween(this.arena.top+14,this.arena.bottom-14),delay=i*85;
           this.time.delayedCall(delay,()=>{
             if(!this.sys.isActive())return;
-            const rocket=this.add.image(x,this.arena.top+8,'missile').setDepth(9).setRotation(Math.PI/2).setScale(.8).setTint(0xffae55);
-            const duration=Phaser.Math.Clamp((y-(this.arena.top+8))*.48,180,420);
+            const rocket=this.add.image(x,this.arena.top+8,'missile').setDepth(9).setRotation(Math.PI/2).setScale(1.6).setTint(0xffae55);
+            const duration=Phaser.Math.Clamp((y-(this.arena.top+8))*.48,180,420)*2;
             this.tweens.add({targets:rocket,y,duration,ease:'Quad.In',onComplete:()=>{
               if(!rocket.active)return;rocket.destroy();this.createExplosionEffect(x,y,false);
               this.resolveMissileBlast(x,y,Phaser.Math.Between(40,50),ownerTank,true);
