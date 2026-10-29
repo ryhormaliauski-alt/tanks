@@ -88,7 +88,7 @@ Each round selects one of four themes with distinct color palettes and obstacle 
 **Power-Up Drops:**
 - Each destroyed wall tile independently has a 10% chance to spawn armor and a 1% chance to spawn a rocket launcher.
 - Each round may also place up to two additional visible rocket launcher pickups at random clear positions in the arena. All drops expire after 10–15 seconds and flash during their final 3 seconds.
-- Any active tank can collect a launcher, regardless of HP or armor. Collection plays an airplane sound and sends five rapidly falling rockets to independent random positions across the arena.
+- Any active tank can collect a launcher, regardless of HP or armor. Collection plays an airplane sound and sends ten rockets, each twice their previous size and taking twice as long to fall, to independent random positions across the arena.
 - Each rocket explodes with missile-scale splash damage to nearby tanks—including the collecting tank—and destroys nearby walls.
 
 ---
