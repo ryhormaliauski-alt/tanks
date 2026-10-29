@@ -17,7 +17,7 @@
   1. **Local 1v1 Battle** (Existing two-player split controls).
   2. **Standalone / Single Player** (New single-player round progression vs. AI).
 * **Player Configuration**: Standard chassis picker (Light, Medium, Heavy) for the player tank before starting the run.
-* **Controls Guidance**: Clear display of solo control schemes (WASD/Arrows to drive, F/G for weapons).
+* **Controls Guidance**: Standalone campaign uses arrow keys to drive, F to fire shells, and G to fire missiles. This does not change the local 1v1 controls.
 
 ---
 

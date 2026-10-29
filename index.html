@@ -360,7 +360,7 @@
         drawButton(this,w*.65,h*.21,Math.min(290,w*.42),42,'STANDALONE',matchState.mode==='solo'?0x276b42:0x344b58,()=>{matchState.mode='solo';this.scene.restart();},10);
         if(matchState.mode==='solo'){
           this.add.text(w/2,h*.32,'SOLO CAMPAIGN  •  SURVIVE THE ENEMY ROUNDS',{font:`${Math.max(8,Math.min(11,w/85))}px ${FONT}`,color:'#aab7bd'}).setOrigin(.5);
-          this.add.text(w/2,h*.40,'WASD / ARROWS: DRIVE  •  F: SHELL  •  G: MISSILE',{font:`${Math.max(7,w/140)}px ${FONT}`,color:'#9eabb0'}).setOrigin(.5);
+          this.add.text(w/2,h*.40,'ARROWS: DRIVE  •  F: SHELL  •  G: MISSILE',{font:`${Math.max(7,w/140)}px ${FONT}`,color:'#9eabb0'}).setOrigin(.5);
           this.makePicker(w/2,h*.59,1);
         }else{
           this.add.text(w/2,h*.32,'LOCAL 1V1  •  FIRST TO 3 ROUNDS',{font:`${Math.max(8,Math.min(11,w/85))}px ${FONT}`,color:'#aab7bd'}).setOrigin(.5);
@@ -415,7 +415,7 @@
         this.physics.add.overlap(this.missilesGroup,this.tanks,(missile,tank)=>this.onTankHit(tank,missile));
         if(matchState.mode==='solo')this.spawnEnemies();
         this.spawnMapRocketLauncherDrops();
-        this.keysP1=matchState.mode==='solo'?this.input.keyboard.addKeys({up:'W',down:'S',left:'A',right:'D',fireShell:'F',fireMissile:'G',up2:'UP',down2:'DOWN',left2:'LEFT',right2:'RIGHT'}):this.input.keyboard.addKeys({up:'W',down:'S',left:'A',right:'D',fireShell:'F',fireMissile:'G'});
+        this.keysP1=matchState.mode==='solo'?this.input.keyboard.addKeys({up:'UP',down:'DOWN',left:'LEFT',right:'RIGHT',fireShell:'F',fireMissile:'G'}):this.input.keyboard.addKeys({up:'W',down:'S',left:'A',right:'D',fireShell:'F',fireMissile:'G'});
         this.keysP2=matchState.mode==='local'?this.input.keyboard.addKeys({up:'UP',down:'DOWN',left:'LEFT',right:'RIGHT',fireShell:'K',fireMissile:'L'}):null;
         this.cooldowns={p1shell:0,p1missile:0,p2shell:0,p2missile:0};this.createHUD();
         this.input.keyboard.on('keydown-ESC',()=>this.scene.start('MenuScene'));
